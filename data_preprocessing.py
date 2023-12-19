@@ -1,47 +1,49 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from sklearn.feature_selection import SelectKBest, f_regression
+from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import accuracy_score
 
 # Load the dataset
 user_df = pd.read_csv('user_data.csv')
 
-# Display basic information about the dataset
-print("Original Dataset Information:")
-print(user_df.info())
+# Separate features (X) and target variable (y)
+X = user_df.drop(columns=['Exercise'])
+y = user_df['Exercise']
 
-# Check for missing values
-print("\nMissing Values:")
-print(user_df.isnull().sum())
-
-# Handle missing values by filling NaN values with the mean for numeric columns
-numeric_columns = user_df.select_dtypes(include=['float64', 'int64']).columns
-user_df[numeric_columns] = user_df[numeric_columns].apply(pd.to_numeric, errors='coerce')
-user_df[numeric_columns] = user_df[numeric_columns].fillna(user_df[numeric_columns].mean())
-
-# Display statistics of numerical features
-print("\nNumerical Feature Statistics:")
-print(user_df.describe())
-
-# Convert categorical features to numerical using one-hot encoding
-user_df = pd.get_dummies(user_df, columns=['Gender', 'Fitness_Goals', 'Exercise_History', 'Medical_Conditions'], drop_first=True)
-
-# Display the modified dataset
-print("\nModified Dataset:")
-print(user_df.head())
+# Convert categorical variables to numerical using one-hot encoding
+X = pd.get_dummies(X)
 
 # Normalization of data
 scaler = StandardScaler()
-X_normalized = scaler.fit_transform(user_df)
+X_normalized = scaler.fit_transform(X)
 
-# Feature selection
-# Select top k features based on ANOVA F-statistic (you can adjust k based on your needs)
-k_best = SelectKBest(f_regression, k='all')
-X_selected = k_best.fit_transform(X_normalized, user_df['Fitness_Goals'])
+# Feature selection using SelectKBest with ANOVA F-statistic
+k_best = 5  # Set your desired number of features
+feature_selector = SelectKBest(f_classif, k=k_best)
+X_selected = feature_selector.fit_transform(X_normalized, y)
+
+# Get the indices of the selected features
+selected_feature_indices = feature_selector.get_support(indices=True)
+
+# Get the names of the selected features
+selected_feature_names = list(X.columns[selected_feature_indices])
+
+# Display the selected features
+print("\nSelected Feature Indices:", selected_feature_indices)
+print("Selected Feature Names:", selected_feature_names)
 
 # Split data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(X_selected, user_df['Fitness_Goals'], test_size=0.2, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(X_selected, y, test_size=0.2, random_state=42)
 
-# Display the selected features (optional)
-selected_feature_names = user_df.columns[k_best.get_support(indices=True)].tolist()
-print("\nSelected Features:", selected_feature_names)
+# Train a machine learning model (example: RandomForestClassifier)
+model = RandomForestClassifier(random_state=42)
+model.fit(X_train, y_train)
+
+# Make predictions
+y_pred = model.predict(X_test)
+
+# Evaluate the model
+accuracy = accuracy_score(y_test, y_pred)
+print("\nModel Accuracy:", accuracy)
